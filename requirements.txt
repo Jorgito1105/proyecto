@@ -35,3 +35,64 @@ tkcalendar==1.6.1
 
 # typing_extensions: una ayuda para el codigo, agrega tipados nuevos para que python no se vuelva loco
 typing_extensions==4.15.0
+
+
+-- 1. Limpieza total y creación de la base de datos
+DROP DATABASE IF EXISTS app_escritorio;
+CREATE DATABASE app_escritorio;
+USE app_escritorio;
+
+-- 2. Tabla Usuarios
+CREATE TABLE usuarios (
+    cedula VARCHAR(20) PRIMARY KEY,
+    nombre_completo VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) NOT NULL,
+    correo VARCHAR(100),
+    pregunta_seguridad VARCHAR(150),
+    respuesta_seguridad VARCHAR(150)
+);
+
+-- 3. Tabla Trabajadores
+CREATE TABLE trabajadores (
+    cedula VARCHAR(20) PRIMARY KEY,
+    apellidos_nombres VARCHAR(100) NOT NULL,
+    fecha_nacimiento DATE,
+    fecha_ingreso DATE,
+    cargo_actual VARCHAR(100),
+    estado_laboral VARCHAR(50) DEFAULT 'Activo'
+);
+
+-- 4. Tabla Historial
+CREATE TABLE historial_cargos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cedula_trabajador VARCHAR(20) NOT NULL,
+    cargo VARCHAR(100) NOT NULL,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NULL
+);
+
+-- 5. Tabla Solicitudes
+CREATE TABLE solicitudes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cedula_solicitante VARCHAR(20) NOT NULL,
+    tipo_documento VARCHAR(100) NOT NULL,
+    estado VARCHAR(50) DEFAULT 'Pendiente',
+    fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ruta_archivo VARCHAR(255) NULL
+);
+
+-- 6. Tabla Auditoría (Estructura final corregida con todos los campos)
+CREATE TABLE auditoria (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    cedula_usuario VARCHAR(20) NOT NULL,
+    accion VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    registro_afectado VARCHAR(100),
+    detalles TEXT,
+    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Insertar el Administrador
+INSERT INTO usuarios (cedula, nombre_completo, password_hash, rol, correo, pregunta_seguridad, respuesta_seguridad) 
+VALUES ('admin', 'Administrador Principal', 'admin', 'Administrador', 'davidarias11505@gmail.com', 'N/A', 'N/A');
