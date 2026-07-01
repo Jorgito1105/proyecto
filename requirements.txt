@@ -1,0 +1,37 @@
+# un pip install -r requirements.txt y ya!!
+
+# babel: esta cosita es por si necesitamos traducir o formatear fechas y numeros chido
+babel==2.18.0
+
+# bcrypt: esto es importante para encriptar las contraseñas en la base de datos
+bcrypt==5.0.0
+
+# customtkinter: tkinter disque moderno
+customtkinter==5.2.2
+
+# darkdetect: esto viene con el customtkinter, basicamente detecta si la pc esta en modo oscuro o claro y adapta el sistema ahi mismo
+darkdetect==0.8.0
+
+# lxml: una dependencia que se nos coló por ahi para procesar archivos xml y html mas rapido
+lxml==6.1.1
+
+# mysql-connector-python: con esto conectamos las mamadas q hice con la base de datos
+mysql-connector-python==9.7.0
+
+# packaging: otra cosita que usan las librerias por debajo para manejar versiones y empaquetado, ni la tocamos pero ahi esta
+packaging==26.2
+
+# python-docs: utilidades para leer la documentacion de python tipo words
+python-docs==0.1.0
+
+# python-docx: con esto es que generamos las constancias de trabajo en word
+python-docx==1.2.0
+
+# python-dotenv: la clave para esconder nuestras contraseñas de la base de datos y correos!! lee el archivo .env y nadie sabe nada ssssssh
+python-dotenv==1.2.2
+
+# tkcalendar: el calendario que usamos para que la gente elija las fechas de ingreso y nacimiento sin andar escribiendo
+tkcalendar==1.6.1
+
+# typing_extensions: una ayuda para el codigo, agrega tipados nuevos para que python no se vuelva loco
+typing_extensions==4.15.0
