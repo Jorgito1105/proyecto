@@ -1,10 +1,13 @@
 import customtkinter as ctk
 from tkinter import ttk
-from funciones_generales import obtener_auditorias
+from funciones_generales import obtener_auditorias, obtener_total_auditorias
 
 class VistaAuditoria(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="transparent")
+        
+        self.pagina_actual = 1
+        self.items_por_pagina = 50
         
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -33,11 +36,48 @@ class VistaAuditoria(ctk.CTkFrame):
         self.tabla.column("fecha_hora", width=150, anchor="center")
 
         self.tabla.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # --- NUEVO CÓDIGO: PAGINACIÓN ---
+        frame_controles_tabla = ctk.CTkFrame(frame_tabla, fg_color="transparent")
+        frame_controles_tabla.pack(fill="x", padx=10, pady=(0, 10))
+        
+        self.btn_anterior = ctk.CTkButton(frame_controles_tabla, text="◀ Anterior", width=80, command=self.pagina_anterior)
+        self.btn_anterior.pack(side="left", padx=5)
+        
+        self.lbl_pagina = ctk.CTkLabel(frame_controles_tabla, text="Página 1")
+        self.lbl_pagina.pack(side="left", padx=15)
+        
+        self.btn_siguiente = ctk.CTkButton(frame_controles_tabla, text="Siguiente ▶", width=80, command=self.pagina_siguiente)
+        self.btn_siguiente.pack(side="left", padx=5)
+        # -----------------------------------------------
+
         self.actualizar_tabla()
 
     def actualizar_tabla(self):
         for fila in self.tabla.get_children():
             self.tabla.delete(fila)
-        datos = obtener_auditorias()
+            
+        offset = (self.pagina_actual - 1) * self.items_por_pagina
+        datos = obtener_auditorias(limit=self.items_por_pagina, offset=offset)
+        
         for registro in datos:
             self.tabla.insert("", "end", values=registro)
+            
+        self.lbl_pagina.configure(text=f"Página {self.pagina_actual}")
+        
+        self.btn_anterior.configure(state="normal" if self.pagina_actual > 1 else "disabled")
+        total_items = obtener_total_auditorias()
+        max_paginas = max(1, (total_items + self.items_por_pagina - 1) // self.items_por_pagina)
+        self.btn_siguiente.configure(state="normal" if self.pagina_actual < max_paginas else "disabled")
+
+    def pagina_anterior(self):
+        if self.pagina_actual > 1:
+            self.pagina_actual -= 1
+            self.actualizar_tabla()
+
+    def pagina_siguiente(self):
+        total_items = obtener_total_auditorias()
+        max_paginas = max(1, (total_items + self.items_por_pagina - 1) // self.items_por_pagina)
+        if self.pagina_actual < max_paginas:
+            self.pagina_actual += 1
+            self.actualizar_tabla()

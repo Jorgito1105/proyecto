@@ -2,7 +2,7 @@ import customtkinter as ctk
 import bcrypt
 import random
 from conexion_BD import conectar_bd
-from funciones_generales import registrar_usuario, verificar_trabajador_registrado, registrar_auditoria, verificar_correo_usuario, enviar_codigo_correo, restablecer_password
+from funciones_generales import registrar_usuario, verificar_trabajador_registrado, registrar_auditoria, verificar_correo_usuario, enviar_codigo_correo, restablecer_password, buscar_usuario_por_cedula
 
 class PantallaLogin(ctk.CTkFrame):
     def __init__(self, master, comando_acceso):
@@ -28,7 +28,7 @@ class PantallaLogin(ctk.CTkFrame):
         self.lbl_mensaje = ctk.CTkLabel(self, text="", font=("Arial", 12))
         self.lbl_mensaje.pack(pady=5)
         
-        ctk.CTkButton(self, text="¿Nuevo ingreso? Registrarse aquí", fg_color="transparent", 
+        ctk.CTkButton(self, text="¿Eres parte del personal? ¡Regístrate aquí!", fg_color="transparent", 
                       hover_color="#2B2B2B", text_color="gray", command=self.mostrar_registro).pack(pady=(20, 0))
 
         ctk.CTkButton(self, text="¿Olvidaste tu contraseña? Recuperar aquí", fg_color="transparent", 
@@ -68,8 +68,18 @@ class PantallaLogin(ctk.CTkFrame):
         for widget in self.frame_dinamico.winfo_children():
             widget.destroy()
             
-        self.reg_nombre = ctk.CTkEntry(self.frame_dinamico, placeholder_text="Nombre Completo", width=250)
-        self.reg_nombre.pack(pady=5)
+        def crear_campo(padre, texto, is_pass=False, mandatory=True):
+            frame = ctk.CTkFrame(padre, fg_color="transparent")
+            frame.pack(pady=5)
+            entry = ctk.CTkEntry(frame, placeholder_text=texto, width=230, show="*" if is_pass else "")
+            entry.pack(side="left")
+            if mandatory:
+                ctk.CTkLabel(frame, text=" *", text_color="red", font=("Arial", 16, "bold")).pack(side="left", padx=(5,0))
+            else:
+                ctk.CTkLabel(frame, text="  ", font=("Arial", 16)).pack(side="left", padx=(5,0))
+            return entry
+
+        self.reg_nombre = crear_campo(self.frame_dinamico, "Nombre Completo", mandatory=True)
         
         if es_trabajador:
             self.lbl_mensaje.configure(text="Personal verificado. Complete sus datos.", text_color="green")
@@ -78,17 +88,10 @@ class PantallaLogin(ctk.CTkFrame):
         else:
             self.lbl_mensaje.configure(text="Cédula no encontrada en RRHH. Ingrese datos manuales.", text_color="orange")
 
-        self.reg_pass = ctk.CTkEntry(self.frame_dinamico, placeholder_text="Crear Contraseña", width=250, show="*")
-        self.reg_pass.pack(pady=5)
-
-        self.reg_correo = ctk.CTkEntry(self.frame_dinamico, placeholder_text="Correo Corporativo o Personal", width=250)
-        self.reg_correo.pack(pady=5)
-
-        self.reg_pregunta = ctk.CTkEntry(self.frame_dinamico, placeholder_text="Pregunta de Seguridad", width=250)
-        self.reg_pregunta.pack(pady=5)
-
-        self.reg_respuesta = ctk.CTkEntry(self.frame_dinamico, placeholder_text="Respuesta", width=250)
-        self.reg_respuesta.pack(pady=5)
+        self.reg_pass = crear_campo(self.frame_dinamico, "Crear Contraseña", is_pass=True, mandatory=True)
+        self.reg_correo = crear_campo(self.frame_dinamico, "Correo Corporativo o Personal", mandatory=True)
+        self.reg_pregunta = crear_campo(self.frame_dinamico, "Pregunta de Seguridad", mandatory=True)
+        self.reg_respuesta = crear_campo(self.frame_dinamico, "Respuesta", mandatory=True)
 
         ctk.CTkButton(self.frame_dinamico, text="Finalizar Registro", fg_color="green", command=self.ejecutar_registro).pack(pady=15)
 
@@ -138,6 +141,10 @@ class PantallaLogin(ctk.CTkFrame):
             
             cursor.close()
             db.close()
+        else:
+            import tkinter.messagebox as messagebox
+            messagebox.showerror("Error de Conexión", "No se pudo conectar a la base de datos.\nVerifique que el servidor MySQL esté activo.")
+            self.lbl_mensaje.configure(text="Error de conexión al servidor", text_color="red")
 
     def ejecutar_registro(self):
         cedula = self.reg_cedula.get()
@@ -147,8 +154,8 @@ class PantallaLogin(ctk.CTkFrame):
         pregunta = self.reg_pregunta.get()
         respuesta = self.reg_respuesta.get()
         
-        if not password or not correo or not nombre:
-            self.lbl_mensaje.configure(text="Por favor, complete todos los campos.", text_color="red")
+        if not password or not correo or not nombre or not pregunta or not respuesta:
+            self.lbl_mensaje.configure(text="Por favor, complete todos los campos obligatorios (*).", text_color="red")
             return
             
         es_trabajador, _ = verificar_trabajador_registrado(cedula)
@@ -180,8 +187,67 @@ class PantallaLogin(ctk.CTkFrame):
         self.lbl_mensaje = ctk.CTkLabel(self, text="", font=("Arial", 12))
         self.lbl_mensaje.pack(pady=5)
         
+        ctk.CTkButton(self, text="¿Recuperar por Pregunta de Seguridad?", fg_color="transparent", 
+                      hover_color="#2B2B2B", text_color="#F39C12", command=self.mostrar_recuperacion_pregunta).pack(pady=(10, 0))
+        
         ctk.CTkButton(self, text="Volver al inicio", fg_color="transparent", 
-                      hover_color="#2B2B2B", text_color="gray", command=self.mostrar_login).pack(pady=(30, 0))
+                      hover_color="#2B2B2B", text_color="gray", command=self.mostrar_login).pack(pady=(15, 0))
+
+    def mostrar_recuperacion_pregunta(self):
+        self.limpiar_pantalla()
+        
+        ctk.CTkLabel(self, text="PREGUNTA DE SEGURIDAD", font=("Arial", 22, "bold")).pack(pady=(60, 30))
+        
+        self.rec_cedula = ctk.CTkEntry(self, placeholder_text="Número de Cédula", width=250)
+        self.rec_cedula.pack(pady=10)
+        
+        ctk.CTkButton(self, text="Buscar Usuario", command=self.procesar_buscar_pregunta).pack(pady=20)
+        
+        self.lbl_mensaje = ctk.CTkLabel(self, text="", font=("Arial", 12))
+        self.lbl_mensaje.pack(pady=5)
+        
+        ctk.CTkButton(self, text="Volver", fg_color="transparent", 
+                      hover_color="#2B2B2B", text_color="gray", command=self.mostrar_recuperacion_fase1).pack(pady=(30, 0))
+
+    def procesar_buscar_pregunta(self):
+        cedula = self.rec_cedula.get()
+        if not cedula:
+            self.lbl_mensaje.configure(text="Ingrese su cédula.", text_color="red")
+            return
+            
+        usuario = buscar_usuario_por_cedula(cedula)
+        if usuario:
+            self.cedula_recuperacion = cedula
+            self.pregunta_seguridad_bd = usuario[4]
+            self.respuesta_seguridad_bd = usuario[5]
+            
+            if not self.pregunta_seguridad_bd or self.pregunta_seguridad_bd == "N/A":
+                self.lbl_mensaje.configure(text="Este usuario no configuró pregunta de seguridad.", text_color="red")
+                return
+                
+            self.limpiar_pantalla()
+            ctk.CTkLabel(self, text="PREGUNTA DE SEGURIDAD", font=("Arial", 22, "bold")).pack(pady=(60, 15))
+            ctk.CTkLabel(self, text=f"Pregunta: {self.pregunta_seguridad_bd}", text_color="white", font=("Arial", 14)).pack(pady=(0, 20))
+            
+            self.rec_respuesta = ctk.CTkEntry(self, placeholder_text="Su respuesta", width=250)
+            self.rec_respuesta.pack(pady=10)
+            
+            ctk.CTkButton(self, text="Validar Respuesta", command=self.procesar_validar_respuesta).pack(pady=20)
+            
+            self.lbl_mensaje = ctk.CTkLabel(self, text="", font=("Arial", 12))
+            self.lbl_mensaje.pack(pady=5)
+            
+            ctk.CTkButton(self, text="Cancelar", fg_color="transparent", 
+                          hover_color="#2B2B2B", text_color="gray", command=self.mostrar_login).pack(pady=(30, 0))
+        else:
+            self.lbl_mensaje.configure(text="Cédula no encontrada.", text_color="red")
+
+    def procesar_validar_respuesta(self):
+        respuesta = self.rec_respuesta.get()
+        if respuesta.strip().lower() == self.respuesta_seguridad_bd.strip().lower():
+            self.mostrar_recuperacion_fase3()
+        else:
+            self.lbl_mensaje.configure(text="Respuesta incorrecta.", text_color="red")
 
     def procesar_fase1(self):
         cedula = self.rec_cedula.get()

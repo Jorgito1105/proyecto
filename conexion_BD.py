@@ -9,8 +9,8 @@ def conectar_bd():
         conexion = mysql.connector.connect(
             host=os.getenv("DB_HOST", "localhost"),
             user=os.getenv("DB_USER", "root"),
-            password=os.getenv("DB_PASSWORD", "JDA31023715"),
-            database=os.getenv("DB_NAME", "app_escritorio")
+            password=os.getenv("DB_PASSWORD", ""),
+            database=os.getenv("DB_NAME", "")
         )
         return conexion
     except mysql.connector.Error as error:

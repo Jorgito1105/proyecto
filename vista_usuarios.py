@@ -80,13 +80,21 @@ class VistaUsuarios(ctk.CTkFrame):
         self.datos_usuario_actual = datos
         cedula, nombre, rol, correo, pregunta, respuesta = datos
         
-        ctk.CTkLabel(self.frame_campos_edicion, text="Nombre Completo:", text_color="gray").pack(anchor="w", pady=(5,0))
+        lbl_frame_nom = ctk.CTkFrame(self.frame_campos_edicion, fg_color="transparent")
+        lbl_frame_nom.pack(anchor="w", pady=(5,0))
+        ctk.CTkLabel(lbl_frame_nom, text="Nombre Completo:", text_color="gray").pack(side="left")
+        ctk.CTkLabel(lbl_frame_nom, text=" *", text_color="red").pack(side="left")
+        
         self.entry_nombre = ctk.CTkEntry(self.frame_campos_edicion)
         self.entry_nombre.pack(fill="x", pady=2)
         self.entry_nombre.insert(0, nombre)
 
-        ctk.CTkLabel(self.frame_campos_edicion, text="Rango asignado:", text_color="gray").pack(anchor="w", pady=(5,0))
-        self.combo_rol = ctk.CTkComboBox(self.frame_campos_edicion, values=["Administrador", "RRHH", "Trabajador", "Externo"])
+        lbl_frame_rol = ctk.CTkFrame(self.frame_campos_edicion, fg_color="transparent")
+        lbl_frame_rol.pack(anchor="w", pady=(5,0))
+        ctk.CTkLabel(lbl_frame_rol, text="Rango asignado:", text_color="gray").pack(side="left")
+        ctk.CTkLabel(lbl_frame_rol, text=" *", text_color="red").pack(side="left")
+        
+        self.combo_rol = ctk.CTkComboBox(self.frame_campos_edicion, values=["Trabajador", "RRHH", "Administrador"], state="readonly")
         self.combo_rol.pack(fill="x", pady=2)
         self.combo_rol.set(rol)
 
@@ -120,8 +128,8 @@ class VistaUsuarios(ctk.CTkFrame):
         respuesta = self.entry_respuesta.get()
         nueva_pass = self.entry_pass.get()
 
-        if not all([nombre, rol, correo]):
-            self.lbl_mensaje.configure(text="Complete los campos obligatorios.", text_color="red")
+        if not all([nombre, rol]):
+            self.lbl_mensaje.configure(text="Complete los campos obligatorios (*).", text_color="red")
             return
 
         pass_final = nueva_pass if nueva_pass else None

@@ -27,6 +27,10 @@ def registrar_usuario(cedula, nombre, password, rol, correo, pregunta, respuesta
         cursor.execute(sql, (cedula, nombre, hashed_password, rol, correo, pregunta, respuesta))
         db.commit()
         return True, "Usuario registrado correctamente."
+    except IntegrityError as e:
+        if "Duplicate entry" in str(e) or getattr(e, 'errno', 0) == 1062:
+            return False, "La cédula introducida ya posee una cuenta registrada. Inicie sesión o recupere su contraseña."
+        return False, f"Error de integridad: {e}"
     except Exception as e:
         return False, f"Error al registrar usuario: {e}"
     finally:
@@ -110,7 +114,7 @@ def verificar_trabajador_registrado(cedula):
         return False, None
     try:
         cursor = db.cursor()
-        cursor.execute("SELECT apellidos_nombres FROM trabajadores WHERE cedula = %s", (cedula,))
+        cursor.execute("SELECT CONCAT(primer_nombre, ' ', primer_apellido) FROM trabajadores WHERE cedula = %s", (cedula,))
         resultado = cursor.fetchone()
         if resultado:
             return True, resultado[0] 
@@ -127,16 +131,16 @@ def verificar_trabajador_registrado(cedula):
 # GESTIÓN DE TRABAJADORES E HISTORIAL
 # =====================================================================
 
-def registrar_trabajador_completo(cedula, nombres, f_nacimiento, f_ingreso, cargo_inicial):
+def registrar_trabajador_completo(cedula, p_nombre, s_nombre, p_apellido, s_apellido, f_nacimiento, f_ingreso, cargo_inicial):
     db = conectar_bd()
     if not db: 
         return False, "Error de conexión."
     try:
         cursor = db.cursor()
         sql_trabajador = """INSERT INTO trabajadores 
-                            (cedula, apellidos_nombres, fecha_nacimiento, fecha_ingreso, cargo_actual, estado_laboral) 
-                            VALUES (%s, %s, %s, %s, %s, 'Activo')"""
-        cursor.execute(sql_trabajador, (cedula, nombres, f_nacimiento, f_ingreso, cargo_inicial))
+                            (cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento, fecha_ingreso, cargo_actual, estado_laboral) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activo')"""
+        cursor.execute(sql_trabajador, (cedula, p_nombre, s_nombre, p_apellido, s_apellido, f_nacimiento, f_ingreso, cargo_inicial))
         
         sql_historial = """INSERT INTO historial_cargos (cedula_trabajador, cargo, fecha_inicio) 
                            VALUES (%s, %s, %s)"""
@@ -152,17 +156,51 @@ def registrar_trabajador_completo(cedula, nombres, f_nacimiento, f_ingreso, carg
             cursor.close()
             db.close()
 
-def obtener_trabajadores():
+def obtener_trabajadores(limit=50, offset=0):
     db = conectar_bd()
     if not db: 
         return []
     try:
         cursor = db.cursor()
-        sql = "SELECT cedula, apellidos_nombres, cargo_actual, fecha_ingreso, estado_laboral FROM trabajadores"
-        cursor.execute(sql)
+        sql = "SELECT cedula, CONCAT(primer_nombre, ' ', primer_apellido) AS nombre_corto, cargo_actual, fecha_ingreso, estado_laboral FROM trabajadores LIMIT %s OFFSET %s"
+        cursor.execute(sql, (limit, offset))
         return cursor.fetchall()
     except Exception:
         return []
+    finally:
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
+def obtener_trabajador_por_cedula(cedula):
+    db = conectar_bd()
+    if not db: 
+        return None
+    try:
+        cursor = db.cursor()
+        sql = "SELECT cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, fecha_nacimiento, fecha_ingreso, cargo_actual, estado_laboral FROM trabajadores WHERE cedula = %s"
+        cursor.execute(sql, (cedula,))
+        return cursor.fetchone()
+    except Exception as e:
+        print(f"Error al obtener trabajador: {e}")
+        return None
+    finally:
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
+
+def obtener_total_trabajadores():
+    db = conectar_bd()
+    if not db: 
+        return 0
+    try:
+        cursor = db.cursor()
+        sql = "SELECT COUNT(*) FROM trabajadores"
+        cursor.execute(sql)
+        return cursor.fetchone()[0]
+    except Exception:
+        return 0
     finally:
         if 'db' in locals() and db.is_connected():
             cursor.close()
@@ -236,6 +274,23 @@ def registrar_solicitud(cedula, tipo_doc):
             cursor.close()
             db.close()
 
+def obtener_mis_solicitudes(cedula):
+    db = conectar_bd()
+    if not db:
+        return []
+    try:
+        cursor = db.cursor()
+        sql = "SELECT tipo_documento, estado, fecha_solicitud FROM solicitudes WHERE cedula_solicitante = %s ORDER BY fecha_solicitud DESC"
+        cursor.execute(sql, (cedula,))
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"Error al cargar mis solicitudes: {e}")
+        return []
+    finally:
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
 def obtener_solicitudes():
     db = conectar_bd()
     if not db: 
@@ -297,18 +352,34 @@ def registrar_auditoria(cedula_usuario, accion, registro_afectado, detalles):
             cursor.close()
             db.close()
 
-def obtener_auditorias():
+def obtener_auditorias(limit=50, offset=0):
     db = conectar_bd()
     if not db: 
         return []
     try:
         cursor = db.cursor()
-        sql = "SELECT cedula_usuario, accion, registro_afectado, detalles, fecha_hora FROM auditoria ORDER BY fecha_hora DESC"
-        cursor.execute(sql)
+        sql = "SELECT cedula_usuario, accion, registro_afectado, detalles, fecha_hora FROM auditoria ORDER BY fecha_hora DESC LIMIT %s OFFSET %s"
+        cursor.execute(sql, (limit, offset))
         return cursor.fetchall()
     except Exception as e:
         print(f"Error al obtener auditorías: {e}")
         return []
+    finally:
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
+def obtener_total_auditorias():
+    db = conectar_bd()
+    if not db: 
+        return 0
+    try:
+        cursor = db.cursor()
+        sql = "SELECT COUNT(*) FROM auditoria"
+        cursor.execute(sql)
+        return cursor.fetchone()[0]
+    except Exception:
+        return 0
     finally:
         if 'db' in locals() and db.is_connected():
             cursor.close()
