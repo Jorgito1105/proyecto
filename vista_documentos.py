@@ -3,7 +3,6 @@ from tkinter import filedialog
 import os
 import sys
 import subprocess
-from docx import Document
 from docxtpl import DocxTemplate
 from funciones_generales import registrar_solicitud, obtener_solicitudes, resolver_ticket_solicitud, registrar_auditoria, obtener_trabajador_por_cedula, obtener_mis_solicitudes
 

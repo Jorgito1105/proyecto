@@ -29,8 +29,6 @@ docxtpl==0.17.0
 # python-dotenv: la clave para esconder nuestras contraseñas de la base de datos y correos!! lee el archivo .env y nadie sabe nada ssssssh
 python-dotenv==1.2.2
 
-# tkcalendar: el calendario que usamos para que la gente elija las fechas de ingreso y nacimiento sin andar escribiendo
-tkcalendar==1.6.1
 
 
 

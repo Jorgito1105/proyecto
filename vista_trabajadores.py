@@ -1,6 +1,5 @@
 import customtkinter as ctk
 from tkinter import ttk
-from tkcalendar import Calendar
 from funciones_generales import registrar_trabajador_completo, obtener_trabajadores, consultar_linea_tiempo_cargos, promover_o_cambiar_cargo, registrar_auditoria, registrar_usuario, obtener_total_trabajadores
 from tkinter import filedialog
 import csv

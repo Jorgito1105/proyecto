@@ -5,10 +5,6 @@ from mysql.connector.errors import IntegrityError
 import os
 import smtplib
 from email.message import EmailMessage
-import os
-import smtplib
-from email.message import EmailMessage
-
 # =====================================================================
 # GESTIÓN DE USUARIOS Y AUTENTICACIÓN
 # =====================================================================
