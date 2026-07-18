@@ -78,6 +78,7 @@ CREATE TABLE solicitudes (
     estado VARCHAR(50) DEFAULT 'Pendiente',
     fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ruta_archivo VARCHAR(255) NULL
+    mensaje_rechazo TEXT NULL;
 );
 
 -- 6. Tabla Auditoría (Estructura final corregida con todos los campos)
