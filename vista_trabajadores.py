@@ -45,60 +45,33 @@ class VistaTrabajadores(ctk.CTkFrame):
         self.reg_sapellido = ctk.CTkEntry(frame_form, placeholder_text="Segundo Apellido")
         self.reg_sapellido.pack(fill="x", padx=20, pady=4)
 
-        def abrir_calendario(entry_widget, titulo):
-            import datetime
-            top = ctk.CTkToplevel(self)
-            top.title(titulo)
-            top.geometry("260x180")
-            top.grab_set()
-            
-            ctk.CTkLabel(top, text="Seleccione la Fecha", font=("Arial", 14, "bold")).pack(pady=10)
-            
-            frame_sel = ctk.CTkFrame(top, fg_color="transparent")
-            frame_sel.pack(pady=10)
-            
-            hoy = datetime.date.today()
-            
-            dias = [f"{i:02d}" for i in range(1, 32)]
-            meses = [f"{i:02d}" for i in range(1, 13)]
-            anios = [str(i) for i in range(hoy.year, 1900, -1)]
-            
-            cb_dia = ctk.CTkComboBox(frame_sel, values=dias, width=60, state="readonly")
-            cb_dia.pack(side="left", padx=2)
-            cb_dia.set(f"{hoy.day:02d}")
-            
-            cb_mes = ctk.CTkComboBox(frame_sel, values=meses, width=60, state="readonly")
-            cb_mes.pack(side="left", padx=2)
-            cb_mes.set(f"{hoy.month:02d}")
-            
-            cb_anio = ctk.CTkComboBox(frame_sel, values=anios, width=70, state="readonly")
-            cb_anio.pack(side="left", padx=2)
-            cb_anio.set(str(hoy.year))
-            
-            def seleccionar():
-                fecha_str = f"{cb_anio.get()}-{cb_mes.get()}-{cb_dia.get()}"
-                entry_widget.delete(0, 'end')
-                entry_widget.insert(0, fecha_str)
-                top.destroy()
-                
-            ctk.CTkButton(top, text="Confirmar Fecha", command=seleccionar).pack(pady=10)
 
-        ctk.CTkLabel(frame_form, text="Fecha de Nacimiento:", text_color="gray").pack(anchor="w", padx=20)
+
+        ctk.CTkLabel(frame_form, text="Fecha de Nacimiento (Ej: 15-08-2023):", text_color="gray").pack(anchor="w", padx=20)
         frame_nac = ctk.CTkFrame(frame_form, fg_color="transparent")
         frame_nac.pack(fill="x", padx=20, pady=5)
-        self.reg_nacimiento = ctk.CTkEntry(frame_nac, placeholder_text="YYYY-MM-DD")
+        self.reg_nacimiento = ctk.CTkEntry(frame_nac, placeholder_text="DD-MM-AAAA")
         self.reg_nacimiento.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkButton(frame_nac, text="📅", width=30, command=lambda: abrir_calendario(self.reg_nacimiento, "Nacimiento")).pack(side="right")
+        ctk.CTkButton(frame_nac, text="📅", width=30, command=lambda: self.abrir_calendario(self.reg_nacimiento, "Nacimiento")).pack(side="right")
 
-        ctk.CTkLabel(frame_form, text="Fecha de Ingreso:", text_color="gray").pack(anchor="w", padx=20)
+        ctk.CTkLabel(frame_form, text="Fecha de Ingreso (Ej: 15-08-2023):", text_color="gray").pack(anchor="w", padx=20)
         frame_ing = ctk.CTkFrame(frame_form, fg_color="transparent")
         frame_ing.pack(fill="x", padx=20, pady=5)
-        self.reg_ingreso = ctk.CTkEntry(frame_ing, placeholder_text="YYYY-MM-DD")
+        self.reg_ingreso = ctk.CTkEntry(frame_ing, placeholder_text="DD-MM-AAAA")
         self.reg_ingreso.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkButton(frame_ing, text="📅", width=30, command=lambda: abrir_calendario(self.reg_ingreso, "Ingreso")).pack(side="right")
+        ctk.CTkButton(frame_ing, text="📅", width=30, command=lambda: self.abrir_calendario(self.reg_ingreso, "Ingreso")).pack(side="right")
 
         self.reg_cargo = ctk.CTkEntry(frame_form, placeholder_text="Cargo Inicial Asignado")
         self.reg_cargo.pack(fill="x", padx=20, pady=8)
+        
+        self.reg_cedula.bind("<Return>", self.ejecutar_registro)
+        self.reg_pnombre.bind("<Return>", self.ejecutar_registro)
+        self.reg_snombre.bind("<Return>", self.ejecutar_registro)
+        self.reg_papellido.bind("<Return>", self.ejecutar_registro)
+        self.reg_sapellido.bind("<Return>", self.ejecutar_registro)
+        self.reg_nacimiento.bind("<Return>", self.ejecutar_registro)
+        self.reg_ingreso.bind("<Return>", self.ejecutar_registro)
+        self.reg_cargo.bind("<Return>", self.ejecutar_registro)
 
         self.check_crear_usuario = ctk.CTkCheckBox(frame_form, text="Generar acceso al sistema (Pass: Cédula)")
         self.check_crear_usuario.pack(anchor="w", padx=20, pady=10)
@@ -160,16 +133,39 @@ class VistaTrabajadores(ctk.CTkFrame):
 
         ctk.CTkLabel(frame_form, text="SEGUIMIENTO DE CARGOS", font=("Arial", 16, "bold")).pack(pady=15)
 
-        self.busq_cedula = ctk.CTkEntry(frame_form, placeholder_text="Cédula del Trabajador")
-        self.busq_cedula.pack(fill="x", padx=20, pady=10)
+        ctk.CTkLabel(frame_form, text="Seleccione el Trabajador:", text_color="gray").pack(anchor="w", padx=20)
+        self.combo_trabajadores = ctk.CTkComboBox(frame_form)
+        self.combo_trabajadores.pack(fill="x", padx=20, pady=5)
+        self.mapa_trabajadores = {}
+        self.cargar_combo_trabajadores()
 
         ctk.CTkButton(frame_form, text="Consultar Historial", command=self.buscar_historial).pack(pady=5, padx=20, fill="x")
 
         ctk.CTkLabel(frame_form, text="Registrar Promoción o Cambio:", font=("Arial", 12, "bold"), text_color="gray").pack(anchor="w", padx=20, pady=(25, 5))
-        self.nuevo_cargo = ctk.CTkEntry(frame_form, placeholder_text="Nuevo Cargo Destinado")
-        self.nuevo_cargo.pack(fill="x", padx=20, pady=10)
+        
+        self.nuevo_cargo = ctk.CTkEntry(frame_form, placeholder_text="Cargo nuevo")
+        self.nuevo_cargo.pack(fill="x", padx=20, pady=5)
+        
+        frame_fecha_inicio = ctk.CTkFrame(frame_form, fg_color="transparent")
+        ctk.CTkLabel(frame_form, text="Fecha de inicio (Ej: 15-08-2023):", text_color="gray").pack(anchor="w", padx=20)
+        frame_fecha_inicio.pack(fill="x", padx=20, pady=5)
+        self.reg_fecha_inicio = ctk.CTkEntry(frame_fecha_inicio, placeholder_text="DD-MM-AAAA")
+        self.reg_fecha_inicio.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkButton(frame_fecha_inicio, text="📅", width=30, command=lambda: self.abrir_calendario(self.reg_fecha_inicio, "Fecha Inicio")).pack(side="right")
+        
+        frame_fecha_final = ctk.CTkFrame(frame_form, fg_color="transparent")
+        ctk.CTkLabel(frame_form, text="Fecha final opcional (Ej: 15-08-2023):", text_color="gray").pack(anchor="w", padx=20)
+        frame_fecha_final.pack(fill="x", padx=20, pady=5)
+        self.reg_fecha_final = ctk.CTkEntry(frame_fecha_final, placeholder_text="DD-MM-AAAA")
+        self.reg_fecha_final.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkButton(frame_fecha_final, text="📅", width=30, command=lambda: self.abrir_calendario(self.reg_fecha_final, "Fecha Final")).pack(side="right")
 
-        ctk.CTkButton(frame_form, text="Aplicar Cambio", fg_color="#2980B9", command=self.ejecutar_ascenso).pack(pady=10, padx=20, fill="x")
+        self.combo_trabajadores.bind("<Return>", self.buscar_historial)
+        self.nuevo_cargo.bind("<Return>", self.ejecutar_ascenso)
+        self.reg_fecha_inicio.bind("<Return>", self.ejecutar_ascenso)
+        self.reg_fecha_final.bind("<Return>", self.ejecutar_ascenso)
+
+        ctk.CTkButton(frame_form, text="Guardar", fg_color="#F4D03F", text_color="black", hover_color="#F1C40F", command=self.ejecutar_ascenso).pack(pady=10, padx=20, fill="x")
         self.lbl_mensaje_hist = ctk.CTkLabel(frame_form, text="")
         self.lbl_mensaje_hist.pack(pady=5)
 
@@ -187,14 +183,77 @@ class VistaTrabajadores(ctk.CTkFrame):
         
         self.tabla_historial.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def ejecutar_registro(self):
+    def cargar_combo_trabajadores(self):
+        datos = obtener_trabajadores(limit=999999, offset=0)
+        nombres = []
+        for reg in datos:
+            ced = reg[0]
+            nom = reg[1]
+            nombres.append(nom)
+            self.mapa_trabajadores[nom] = ced
+        if nombres:
+            self.combo_trabajadores.configure(values=nombres)
+        else:
+            self.combo_trabajadores.configure(values=["Sin trabajadores"])
+        
+        # Empezar en blanco
+        self.combo_trabajadores.set("")
+
+    def abrir_calendario(self, entry_widget, titulo):
+        import datetime
+        top = ctk.CTkToplevel(self)
+        top.title(titulo)
+        top.geometry("260x180")
+        top.grab_set()
+        
+        ctk.CTkLabel(top, text="Seleccione la Fecha", font=("Arial", 14, "bold")).pack(pady=10)
+        
+        frame_sel = ctk.CTkFrame(top, fg_color="transparent")
+        frame_sel.pack(pady=10)
+        
+        hoy = datetime.date.today()
+        
+        dias = [f"{i:02d}" for i in range(1, 32)]
+        meses = [f"{i:02d}" for i in range(1, 13)]
+        anios = [str(i) for i in range(hoy.year, 1900, -1)]
+        
+        cb_dia = ctk.CTkComboBox(frame_sel, values=dias, width=60, state="readonly")
+        cb_dia.pack(side="left", padx=2)
+        cb_dia.set(f"{hoy.day:02d}")
+        
+        cb_mes = ctk.CTkComboBox(frame_sel, values=meses, width=60, state="readonly")
+        cb_mes.pack(side="left", padx=2)
+        cb_mes.set(f"{hoy.month:02d}")
+        
+        cb_anio = ctk.CTkComboBox(frame_sel, values=anios, width=70, state="readonly")
+        cb_anio.pack(side="left", padx=2)
+        cb_anio.set(str(hoy.year))
+        
+        def seleccionar():
+            fecha_str = f"{cb_dia.get()}-{cb_mes.get()}-{cb_anio.get()}"
+            entry_widget.delete(0, 'end')
+            entry_widget.insert(0, fecha_str)
+            top.destroy()
+            
+        ctk.CTkButton(top, text="Confirmar Fecha", command=seleccionar).pack(pady=10)
+
+    def ejecutar_registro(self, event=None):
         ced = self.reg_cedula.get()
         pn = self.reg_pnombre.get()
         sn = self.reg_snombre.get()
         pa = self.reg_papellido.get()
         sa = self.reg_sapellido.get()
-        nac = self.reg_nacimiento.get()
-        ing = self.reg_ingreso.get()
+        def formato_db(fecha_str):
+            try:
+                d, m, a = fecha_str.split('-')
+                if len(a) == 4:
+                    return f"{a}-{m}-{d}"
+            except:
+                pass
+            return fecha_str
+            
+        nac = formato_db(self.reg_nacimiento.get())
+        ing = formato_db(self.reg_ingreso.get())
         car = self.reg_cargo.get()
 
         if not (ced and pn and pa and nac and ing and car):
@@ -216,6 +275,8 @@ class VistaTrabajadores(ctk.CTkFrame):
             self.reg_sapellido.delete(0, 'end')
             self.reg_cargo.delete(0, 'end')
             self.actualizar_tabla_trabajadores()
+            if hasattr(self, 'combo_trabajadores'):
+                self.cargar_combo_trabajadores()
         else:
             self.lbl_mensaje_reg.configure(text=msg, text_color="red")
 
@@ -263,8 +324,9 @@ class VistaTrabajadores(ctk.CTkFrame):
                 import tkinter.messagebox as messagebox
                 messagebox.showerror("Error", f"No se pudo guardar el archivo:\n{e}")
 
-    def buscar_historial(self):
-        cedula = self.busq_cedula.get()
+    def buscar_historial(self, event=None):
+        nombre = self.combo_trabajadores.get()
+        cedula = getattr(self, 'mapa_trabajadores', {}).get(nombre)
         if not cedula: return
         for fila in self.tabla_historial.get_children():
             self.tabla_historial.delete(fila)
@@ -274,15 +336,31 @@ class VistaTrabajadores(ctk.CTkFrame):
             fin_str = fin if fin else "VIGENTE"
             self.tabla_historial.insert("", "end", values=(cargo, inicio, fin_str))
 
-    def ejecutar_ascenso(self):
-        cedula = self.busq_cedula.get()
+    def ejecutar_ascenso(self, event=None):
+        nombre = self.combo_trabajadores.get()
+        cedula = getattr(self, 'mapa_trabajadores', {}).get(nombre)
         cargo = self.nuevo_cargo.get()
         if not cedula or not cargo: return
-        exito, msj = promover_o_cambiar_cargo(cedula, cargo)
+        
+        def formato_db(fecha_str):
+            if not fecha_str: return None
+            try:
+                d, m, a = fecha_str.split('-')
+                if len(a) == 4: return f"{a}-{m}-{d}"
+            except:
+                pass
+            return fecha_str
+            
+        f_inicio = formato_db(self.reg_fecha_inicio.get())
+        f_final = formato_db(self.reg_fecha_final.get())
+        
+        exito, msj = promover_o_cambiar_cargo(cedula, cargo, f_inicio, f_final)
         if exito:
             registrar_auditoria(self.cedula_actual, "Cambio de Cargo", cedula, f"Se asignó el nuevo cargo: {cargo}")
             self.lbl_mensaje_hist.configure(text=msj, text_color="green")
             self.nuevo_cargo.delete(0, 'end')
+            self.reg_fecha_inicio.delete(0, 'end')
+            self.reg_fecha_final.delete(0, 'end')
             self.buscar_historial()
             self.actualizar_tabla_trabajadores()
         else:

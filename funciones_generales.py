@@ -202,22 +202,30 @@ def obtener_total_trabajadores():
             cursor.close()
             db.close()
 
-def promover_o_cambiar_cargo(cedula, nuevo_cargo):
+def promover_o_cambiar_cargo(cedula, nuevo_cargo, fecha_inicio=None, fecha_final=None):
     db = conectar_bd()
     if not db: 
         return False, "Error de conexión."
-    hoy = date.today()
+    
+    f_inicio = fecha_inicio if fecha_inicio else date.today()
     try:
         cursor = db.cursor()
-        sql_cerrar = "UPDATE historial_cargos SET fecha_fin = %s WHERE cedula_trabajador = %s AND fecha_fin IS NULL"
-        cursor.execute(sql_cerrar, (hoy, cedula))
         
-        sql_nuevo = "INSERT INTO historial_cargos (cedula_trabajador, cargo, fecha_inicio) VALUES (%s, %s, %s)"
-        cursor.execute(sql_nuevo, (cedula, nuevo_cargo, hoy))
-        
-        sql_actualizar_ficha = "UPDATE trabajadores SET cargo_actual = %s WHERE cedula = %s"
-        cursor.execute(sql_actualizar_ficha, (nuevo_cargo, cedula))
-        
+        if fecha_final:
+            # Es un registro histórico, no altera el cargo actual
+            sql_nuevo = "INSERT INTO historial_cargos (cedula_trabajador, cargo, fecha_inicio, fecha_fin) VALUES (%s, %s, %s, %s)"
+            cursor.execute(sql_nuevo, (cedula, nuevo_cargo, f_inicio, fecha_final))
+        else:
+            # Promoción normal (cierra el actual, abre uno nuevo)
+            sql_cerrar = "UPDATE historial_cargos SET fecha_fin = %s WHERE cedula_trabajador = %s AND fecha_fin IS NULL"
+            cursor.execute(sql_cerrar, (f_inicio, cedula))
+            
+            sql_nuevo = "INSERT INTO historial_cargos (cedula_trabajador, cargo, fecha_inicio) VALUES (%s, %s, %s)"
+            cursor.execute(sql_nuevo, (cedula, nuevo_cargo, f_inicio))
+            
+            sql_actualizar_ficha = "UPDATE trabajadores SET cargo_actual = %s WHERE cedula = %s"
+            cursor.execute(sql_actualizar_ficha, (nuevo_cargo, cedula))
+            
         db.commit()
         return True, "Historial de cargos actualizado exitosamente."
     except Exception as e:
@@ -255,6 +263,12 @@ def registrar_solicitud(cedula, tipo_doc):
         return False, "Error de conexión interna."
     try:
         cursor = db.cursor()
+        
+        # Validación de duplicados
+        cursor.execute("SELECT id FROM solicitudes WHERE cedula_solicitante = %s AND tipo_documento = %s AND estado = 'Pendiente'", (cedula, tipo_doc))
+        if cursor.fetchone():
+            return False, f"Ya tienes una solicitud de '{tipo_doc}' en proceso. Por favor, espera a que sea atendida."
+            
         sql = "INSERT INTO solicitudes (cedula_solicitante, tipo_documento, estado) VALUES (%s, %s, 'Pendiente')"
         cursor.execute(sql, (cedula, tipo_doc))
         db.commit()
@@ -276,7 +290,7 @@ def obtener_mis_solicitudes(cedula):
         return []
     try:
         cursor = db.cursor()
-        sql = "SELECT tipo_documento, estado, fecha_solicitud FROM solicitudes WHERE cedula_solicitante = %s ORDER BY fecha_solicitud DESC"
+        sql = "SELECT tipo_documento, estado, fecha_solicitud, ruta_archivo, mensaje_rechazo FROM solicitudes WHERE cedula_solicitante = %s ORDER BY fecha_solicitud DESC"
         cursor.execute(sql, (cedula,))
         return cursor.fetchall()
     except Exception as e:
@@ -319,6 +333,23 @@ def resolver_ticket_solicitud(id_solicitud, nuevo_estado, ruta_guardado=None):
         cursor.execute(sql, (nuevo_estado, ruta_guardado, id_solicitud))
         db.commit()
         return True, "Solicitud actualizada correctamente."
+    except Exception as e:
+        return False, f"Error: {e}"
+    finally:
+        if 'db' in locals() and db.is_connected():
+            cursor.close()
+            db.close()
+
+def rechazar_solicitud(id_solicitud, mensaje):
+    db = conectar_bd()
+    if not db: 
+        return False, "Error de conexión."
+    try:
+        cursor = db.cursor()
+        sql = "UPDATE solicitudes SET estado = 'Rechazada', mensaje_rechazo = %s WHERE id = %s"
+        cursor.execute(sql, (mensaje, id_solicitud))
+        db.commit()
+        return True, "Solicitud rechazada correctamente."
     except Exception as e:
         return False, f"Error: {e}"
     finally:

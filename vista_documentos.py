@@ -4,7 +4,7 @@ import os
 import sys
 import subprocess
 from docxtpl import DocxTemplate
-from funciones_generales import registrar_solicitud, obtener_solicitudes, resolver_ticket_solicitud, registrar_auditoria, obtener_trabajador_por_cedula, obtener_mis_solicitudes
+from funciones_generales import registrar_solicitud, obtener_solicitudes, resolver_ticket_solicitud, registrar_auditoria, obtener_trabajador_por_cedula, obtener_mis_solicitudes, obtener_trabajadores
 
 class VistaDocumentos(ctk.CTkFrame):
     def __init__(self, master, rol_usuario, cedula_actual):
@@ -36,6 +36,28 @@ class VistaDocumentos(ctk.CTkFrame):
         
         self.lbl_mensaje = ctk.CTkLabel(self.frame_form, text="")
         self.lbl_mensaje.pack(pady=5)
+        
+        if self.rol_usuario in ["administrador", "admin", "rrhh"]:
+            ctk.CTkFrame(self.frame_form, height=2, fg_color="gray").pack(fill="x", padx=20, pady=15)
+            
+            ctk.CTkLabel(self.frame_form, text="GENERAR DOCUMENTO", font=("Arial", 14, "bold"), text_color="#F39C12").pack(pady=(5, 15))
+            
+            ctk.CTkLabel(self.frame_form, text="Seleccione el Trabajador:", text_color="gray").pack(anchor="w", padx=20)
+            self.combo_trabajadores_directo = ctk.CTkComboBox(self.frame_form)
+            self.combo_trabajadores_directo.pack(fill="x", padx=20, pady=5)
+            self.mapa_trabajadores_directo = {}
+            self.cargar_combo_trabajadores()
+            
+            ctk.CTkLabel(self.frame_form, text="Tipo de Documento:", text_color="gray").pack(anchor="w", padx=20)
+            self.combo_doc_directo = ctk.CTkComboBox(self.frame_form, values=["Constancia de Trabajo", "Antecedentes", "Periodo Vacacional"], state="readonly")
+            self.combo_doc_directo.pack(fill="x", padx=20, pady=5)
+            self.combo_doc_directo.set("Constancia de Trabajo")
+            
+            self.btn_generar_directo = ctk.CTkButton(self.frame_form, text="Generar Documento", fg_color="#1F618D", command=self.ejecutar_generacion_directa)
+            self.btn_generar_directo.pack(pady=15, padx=20, fill="x")
+            
+            self.combo_trabajadores_directo.bind("<Return>", self.ejecutar_generacion_directa)
+            self.combo_doc_directo.bind("<Return>", self.ejecutar_generacion_directa)
 
         # ================= BUZÓN DE NOTIFICACIONES (RRHH) O ESTATUS (TRABAJADOR) =================
         self.frame_notificaciones = ctk.CTkFrame(self)
@@ -53,7 +75,7 @@ class VistaDocumentos(ctk.CTkFrame):
             self.scroll_notificaciones.pack(fill="both", expand=True, padx=10, pady=10)
             self.actualizar_mis_solicitudes()
 
-    def ejecutar_solicitud(self):
+    def ejecutar_solicitud(self, event=None):
         cedula = self.cedula_actual
         tipo = self.combo_doc.get()
         
@@ -67,6 +89,47 @@ class VistaDocumentos(ctk.CTkFrame):
                 self.actualizar_mis_solicitudes()
         else:
             self.lbl_mensaje.configure(text=msg, text_color="red")
+            
+    def cargar_combo_trabajadores(self):
+        datos = obtener_trabajadores(limit=999999, offset=0)
+        nombres = []
+        for reg in datos:
+            ced = reg[0]
+            nom = reg[1]
+            nombres.append(nom)
+            self.mapa_trabajadores_directo[nom] = ced
+        
+        if nombres:
+            self.combo_trabajadores_directo.configure(values=nombres)
+            self.combo_trabajadores_directo.set("")
+        else:
+            self.combo_trabajadores_directo.configure(values=["Sin trabajadores"])
+            self.combo_trabajadores_directo.set("")
+
+    def ejecutar_generacion_directa(self, event=None):
+        nombre_trabajador = getattr(self, 'combo_trabajadores_directo', None)
+        if not nombre_trabajador: return
+        nombre = nombre_trabajador.get()
+        cedula = getattr(self, 'mapa_trabajadores_directo', {}).get(nombre)
+        tipo = self.combo_doc_directo.get()
+        if not cedula:
+            self.lbl_mensaje.configure(text="Seleccione un trabajador válido.", text_color="red")
+            return
+            
+        trab = obtener_trabajador_por_cedula(cedula)
+        if not trab:
+            self.lbl_mensaje.configure(text="Trabajador no encontrado en el sistema.", text_color="red")
+            return
+            
+        nombre_completo = f"{trab[1]} {trab[3]}"
+        cargo = trab[7]
+        
+        import datetime
+        datos_solicitud = (None, nombre_completo, tipo, "Aprobado", datetime.date.today(), cargo, cedula)
+        
+        self.lbl_mensaje.configure(text="")
+        self.combo_trabajadores_directo.set("")
+        self.abrir_ventana_impresion(datos_solicitud)
 
     def actualizar_buzon_notificaciones(self):
         for widget in self.scroll_notificaciones.winfo_children():
@@ -89,21 +152,41 @@ class VistaDocumentos(ctk.CTkFrame):
                 fecha_segura = str(fecha)[:10] if fecha else "Fecha no registrada"
                 
                 # CORRECCIÓN: Se retiró 'pady' del constructor CTkFrame.
-                card = ctk.CTkFrame(self.scroll_notificaciones, border_width=1, border_color="#5D6D7E")
+                card = ctk.CTkFrame(self.scroll_notificaciones, border_width=1, border_color="#F39C12", fg_color="#212F3D")
                 card.pack(fill="x", pady=5, padx=5)
 
                 texto_informativo = f"📅 {fecha_segura} - El empleado {nombre} (C.I: {cedula})\nsolicitó un documento de tipo: '{tipo}'"
                 
                 # El espaciado vertical (pady) se asigna ahora al posicionar los elementos internos
-                lbl_info = ctk.CTkLabel(card, text=texto_informativo, justify="left", font=("Arial", 11))
-                lbl_info.pack(side="left", padx=15, pady=10) 
+                lbl_info = ctk.CTkLabel(card, text=texto_informativo, justify="left", font=("Arial", 12, "bold"), text_color="#EAECEE")
+                lbl_info.pack(side="top", anchor="w", padx=15, pady=(10, 5)) 
 
-                btn_gestionar = ctk.CTkButton(card, text="Atender", width=80, fg_color="#2E4053", 
+                frame_btns = ctk.CTkFrame(card, fg_color="transparent")
+                frame_btns.pack(side="top", anchor="e", padx=15, pady=(0, 10))
+
+                btn_rechazar = ctk.CTkButton(frame_btns, text="❌ Rechazar", width=80, fg_color="#C0392B", hover_color="#922B21", 
+                                               command=lambda r=registro: self.abrir_dialogo_rechazo(r))
+                btn_rechazar.pack(side="left", padx=(0, 10))
+
+                btn_gestionar = ctk.CTkButton(frame_btns, text="✅ Atender", width=80, fg_color="#27AE60", hover_color="#1E8449",
                                                command=lambda r=registro: self.abrir_ventana_impresion(r))
-                btn_gestionar.pack(side="right", padx=15, pady=10)
+                btn_gestionar.pack(side="left")
                 
         except Exception as e:
             ctk.CTkLabel(self.scroll_notificaciones, text=f"Error interno al cargar datos: {e}", text_color="red").pack(pady=30)
+            
+    def abrir_dialogo_rechazo(self, registro):
+        id_sol, nombre, tipo, estado, fecha, cargo_sol, cedula = registro
+        dialog = ctk.CTkInputDialog(text=f"Motivo de rechazo para la solicitud de {tipo} de {nombre} (Opcional):", title="Rechazar Solicitud")
+        motivo = dialog.get_input()
+        if motivo is not None:
+            from funciones_generales import rechazar_solicitud
+            exito, msg = rechazar_solicitud(id_sol, motivo)
+            if exito:
+                self.lbl_mensaje.configure(text=f"Solicitud de {nombre} rechazada.", text_color="green")
+                self.actualizar_buzon_notificaciones()
+            else:
+                self.lbl_mensaje.configure(text=msg, text_color="red")
             
     def actualizar_mis_solicitudes(self):
         for widget in self.scroll_notificaciones.winfo_children():
@@ -117,26 +200,59 @@ class VistaDocumentos(ctk.CTkFrame):
                 return
 
             for registro in mis_solicitudes:
-                tipo, estado, fecha = registro
+                tipo, estado, fecha, ruta, msj_rechazo = registro
                 
                 fecha_segura = str(fecha)[:10] if fecha else "Fecha no registrada"
                 
-                card = ctk.CTkFrame(self.scroll_notificaciones, border_width=1, border_color="#5D6D7E")
+                if estado == "Pendiente":
+                    b_color = "#F39C12"
+                    texto_estado = "⏳ En Proceso"
+                elif estado == "Aprobado":
+                    b_color = "#27AE60"
+                    texto_estado = "✅ Aprobada"
+                else:
+                    b_color = "#C0392B"
+                    texto_estado = "❌ Rechazada"
+                
+                card = ctk.CTkFrame(self.scroll_notificaciones, border_width=1, border_color=b_color, fg_color="#212F3D")
                 card.pack(fill="x", pady=5, padx=5)
 
                 texto_informativo = f"📄 {tipo}\nSolicitado el: {fecha_segura}"
+                if estado in ["Rechazado", "Rechazada"] and msj_rechazo:
+                    texto_informativo += f"\nMotivo: {msj_rechazo}"
                 
-                lbl_info = ctk.CTkLabel(card, text=texto_informativo, justify="left", font=("Arial", 11))
+                lbl_info = ctk.CTkLabel(card, text=texto_informativo, justify="left", font=("Arial", 12, "bold"), text_color="#EAECEE")
                 lbl_info.pack(side="left", padx=15, pady=10)
                 
-                color_estado = "orange" if estado == "Pendiente" else "green"
-                texto_estado = "Pendiente de Procesar" if estado == "Pendiente" else "¡Aprobada - Lista para retirar!"
+                frame_der = ctk.CTkFrame(card, fg_color="transparent")
+                frame_der.pack(side="right", padx=15, pady=10)
+
+                lbl_estado = ctk.CTkLabel(frame_der, text=texto_estado, text_color=b_color, font=("Arial", 12, "bold"))
+                lbl_estado.pack(side="top", anchor="e", pady=(0, 5))
                 
-                lbl_estado = ctk.CTkLabel(card, text=texto_estado, text_color=color_estado, font=("Arial", 11, "bold"))
-                lbl_estado.pack(side="right", padx=15, pady=10)
-                
+                if estado == "Aprobado" and ruta:
+                    btn_abrir = ctk.CTkButton(frame_der, text="📄 Abrir Documento", width=120, fg_color="#2980B9", hover_color="#1A5276",
+                                              command=lambda r=ruta: self.abrir_archivo(r))
+                    btn_abrir.pack(side="bottom", anchor="e")
+                    
         except Exception as e:
             ctk.CTkLabel(self.scroll_notificaciones, text=f"Error interno al cargar datos: {e}", text_color="red").pack(pady=30)
+            
+    def abrir_archivo(self, ruta):
+        import os, sys, subprocess
+        if not os.path.exists(ruta):
+            self.lbl_mensaje.configure(text="El archivo ya no existe en el servidor.", text_color="red")
+            return
+        try:
+            if sys.platform == "win32":
+                os.startfile(ruta)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", ruta])
+            else:
+                subprocess.Popen(["xdg-open", ruta])
+            self.lbl_mensaje.configure(text="")
+        except Exception as e:
+            self.lbl_mensaje.configure(text=f"No se pudo abrir el archivo: {e}", text_color="red")
     
     def abrir_ventana_impresion(self, datos_solicitud):
         id_sol, nombre, tipo, estado, fecha, cargo_sol, cedula = datos_solicitud
@@ -161,11 +277,14 @@ class VistaDocumentos(ctk.CTkFrame):
         frame_form = ctk.CTkScrollableFrame(ventana_imprimir, fg_color="transparent")
         frame_form.pack(fill="both", expand=True, padx=20, pady=5)
 
-        def crear_campo(padre, texto, valor_defecto=""):
+        def crear_campo(padre, texto, valor_defecto="", es_placeholder=False):
             ctk.CTkLabel(padre, text=texto, text_color="gray").pack(anchor="w", pady=(5,0))
-            entry = ctk.CTkEntry(padre)
+            if es_placeholder:
+                entry = ctk.CTkEntry(padre, placeholder_text=str(valor_defecto))
+            else:
+                entry = ctk.CTkEntry(padre)
+                entry.insert(0, str(valor_defecto))
             entry.pack(fill="x", pady=2)
-            entry.insert(0, str(valor_defecto))
             return entry
 
         entry_pnom = crear_campo(frame_form, "Primer Nombre:", p_nom)
@@ -180,8 +299,8 @@ class VistaDocumentos(ctk.CTkFrame):
         # Separador visual opcional
         ctk.CTkFrame(frame_form, height=2, fg_color="gray").pack(fill="x", pady=(15, 5))
         
-        entry_ingreso = crear_campo(frame_form, "Ingreso Mensual (Bs):", "0.00")
-        entry_cesta = crear_campo(frame_form, "Cesta Ticket (Bs):", "0.00")
+        entry_ingreso = crear_campo(frame_form, "Ingreso Mensual (Bs):", "0.00", es_placeholder=True)
+        entry_cesta = crear_campo(frame_form, "Cesta Ticket (Bs):", "0.00", es_placeholder=True)
         
         ctk.CTkLabel(frame_form, text="Total Ingresos (Auto-calculado):", text_color="gray").pack(anchor="w", pady=(5,0))
         lbl_total = ctk.CTkLabel(frame_form, text="0.00 Bs", font=("Arial", 12, "bold"))
@@ -215,7 +334,7 @@ class VistaDocumentos(ctk.CTkFrame):
         nombre_archivo_sugerido = f"{tipo} {p_nom} {p_ape}".strip()
         entry_filename = crear_campo(frame_form, "Nombre del archivo (.docx):", nombre_archivo_sugerido)
 
-        def ejecutar_impresion_final():
+        def ejecutar_impresion_final(event=None):
             nombre1 = entry_pnom.get()
             nombre2 = entry_snom.get()
             apellido1 = entry_pape.get()
@@ -276,7 +395,8 @@ class VistaDocumentos(ctk.CTkFrame):
                 else:
                     subprocess.Popen(["xdg-open", ruta_completa])
                 
-                resolver_ticket_solicitud(id_sol, "Aprobado", ruta_completa)
+                if id_sol:
+                    resolver_ticket_solicitud(id_sol, "Aprobado", ruta_completa)
                 registrar_auditoria(self.cedula_actual, "Emisión de Documento", cedula, f"Se generó documento desde plantilla: {tipo}")
                 
                 ventana_imprimir.destroy()
@@ -284,5 +404,25 @@ class VistaDocumentos(ctk.CTkFrame):
             except Exception as err:
                 ctk.CTkLabel(frame_form, text=f"Error: {err}", text_color="red").pack()
 
+        entry_pnom.bind("<Return>", ejecutar_impresion_final)
+        entry_snom.bind("<Return>", ejecutar_impresion_final)
+        entry_pape.bind("<Return>", ejecutar_impresion_final)
+        entry_sape.bind("<Return>", ejecutar_impresion_final)
+        entry_ced.bind("<Return>", ejecutar_impresion_final)
+        entry_car.bind("<Return>", ejecutar_impresion_final)
+        entry_fecha_ing.bind("<Return>", ejecutar_impresion_final)
+        entry_ingreso.bind("<Return>", ejecutar_impresion_final)
+        entry_cesta.bind("<Return>", ejecutar_impresion_final)
+        entry_filename.bind("<Return>", ejecutar_impresion_final)
+        
         ctk.CTkButton(ventana_imprimir, text="✅ Imprimir Documento", fg_color="#1E8449", hover_color="#145A32", 
                       command=ejecutar_impresion_final).pack(pady=15, padx=20, fill="x")
+                      
+        import sys
+        if sys.platform == "linux":
+            def _bind_mouse_scroll(widget):
+                widget.bind("<Button-4>", lambda e: frame_form._parent_canvas.yview_scroll(-1, "units"), add="+")
+                widget.bind("<Button-5>", lambda e: frame_form._parent_canvas.yview_scroll(1, "units"), add="+")
+                for child in widget.winfo_children():
+                    _bind_mouse_scroll(child)
+            _bind_mouse_scroll(frame_form)

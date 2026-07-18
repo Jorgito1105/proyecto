@@ -56,6 +56,7 @@ class VistaUsuarios(ctk.CTkFrame):
         self.tabla.column("correo", width=150)
 
         self.tabla.pack(fill="both", expand=True, padx=10, pady=10)
+        self.tabla.bind("<Double-1>", self.on_double_click_tabla)
         self.actualizar_tabla()
 
     def ejecutar_busqueda(self):
@@ -116,11 +117,26 @@ class VistaUsuarios(ctk.CTkFrame):
         ctk.CTkLabel(self.frame_campos_edicion, text="Nueva Contraseña (Opcional):", text_color="gray").pack(anchor="w", pady=(5,0))
         self.entry_pass = ctk.CTkEntry(self.frame_campos_edicion, show="*")
         self.entry_pass.pack(fill="x", pady=2)
+        
+        self.entry_nombre.bind("<Return>", lambda e: self.guardar_cambios(cedula, e))
+        self.entry_correo.bind("<Return>", lambda e: self.guardar_cambios(cedula, e))
+        self.entry_pregunta.bind("<Return>", lambda e: self.guardar_cambios(cedula, e))
+        self.entry_respuesta.bind("<Return>", lambda e: self.guardar_cambios(cedula, e))
+        self.entry_pass.bind("<Return>", lambda e: self.guardar_cambios(cedula, e))
 
         self.btn_guardar = ctk.CTkButton(self.frame_campos_edicion, text="Guardar Cambios", fg_color="#1F618D", command=lambda: self.guardar_cambios(cedula))
         self.btn_guardar.pack(fill="x", pady=15)
+        
+        import sys
+        if sys.platform == "linux":
+            def _bind_mouse_scroll(widget):
+                widget.bind("<Button-4>", lambda e: self.frame_campos_edicion._parent_canvas.yview_scroll(-1, "units"), add="+")
+                widget.bind("<Button-5>", lambda e: self.frame_campos_edicion._parent_canvas.yview_scroll(1, "units"), add="+")
+                for child in widget.winfo_children():
+                    _bind_mouse_scroll(child)
+            _bind_mouse_scroll(self.frame_campos_edicion)
 
-    def guardar_cambios(self, cedula):
+    def guardar_cambios(self, cedula, event=None):
         nombre = self.entry_nombre.get()
         rol = self.combo_rol.get()
         correo = self.entry_correo.get()
@@ -158,3 +174,13 @@ class VistaUsuarios(ctk.CTkFrame):
         datos = obtener_usuarios_priorizados()
         for registro in datos:
             self.tabla.insert("", "end", values=registro)
+            
+    def on_double_click_tabla(self, event=None):
+        item = self.tabla.selection()
+        if not item: return
+        valores = self.tabla.item(item[0], "values")
+        if valores:
+            cedula = valores[0]
+            self.entry_buscar_cedula.delete(0, 'end')
+            self.entry_buscar_cedula.insert(0, cedula)
+            self.ejecutar_busqueda()
